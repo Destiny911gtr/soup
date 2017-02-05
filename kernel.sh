@@ -25,7 +25,7 @@ export KBUILD_BUILD_USER="Ded_Boi"
 export KBUILD_BUILD_HOST="Beefy_PC"
 export ARCH=arm64
 export SUBARCH=arm64
-export CROSS_COMPILE=/home/dhanush911gtr/Linaro4.9.4/bin/aarch64-linux-gnu-
+export CROSS_COMPILE=/home/dhanush911gtr/uberlinaro4.9/bin/aarch64-linux-android-
 make lineageos_tomato_defconfig
 echo "Making"
 make -j2 | tee $HOME/output.txt
