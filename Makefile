@@ -579,7 +579,7 @@ all: vmlinux
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= -Os $(call cc-disable-warning,maybe-uninitialized,)
 else
-KBUILD_CFLAGS	+= -O2
+KBUILD_CFLAGS	+= -O2 -funswitch-loops -fpredictive-commoning -fgcse-after-reload -ftree-vectorize -ftree-loop-distribute-patterns -fsplit-paths -fvect-cost-model -ftree-partial-pre -fpeel-loops
 endif
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
