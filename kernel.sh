@@ -3,10 +3,15 @@ setterm -clear
 echo -e "\e[1mBUILD HAS STARTED\e[0m"
 echo "Cleaning stuff"
 make clean && make mrproper
+z="/home/dhanush911gtr/kernel/kenel.zip"
+if [ -e $z ]
+then
 echo "Removing previous zip leftovers"
+rm kernel.zip
 rm ../kerzip/tools/dt.img
 rm ../kerzip/system/lib/modules/wlan.ko
 rm ../kerzip/tools/Image
+fi
 ccache -c
 BUILD_START=$(date +"%s")
 KERNEL_DIR=$PWD
