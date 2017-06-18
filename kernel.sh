@@ -1,4 +1,7 @@
 #!/bin/bash
+setterm -clear
+echo -e "\e[1mBUILD HAS STARTED\e[0m"
+echo "Cleaning stuff"
 make clean && make mrproper
 echo "Removing previous zip leftovers"
 rm ../kerzip/tools/dt.img
