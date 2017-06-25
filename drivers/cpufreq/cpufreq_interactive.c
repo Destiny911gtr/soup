@@ -453,9 +453,7 @@ static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 	atomic_notifier_call_chain(&cpufreq_govinfo_notifier_list,
 					CPUFREQ_LOAD_CHANGE, &int_info);
 
-	spin_lock_irqsave(&pcpu->target_freq_lock, flags);
-	cpu_load = loadadjfreq / pcpu->policy->cur;
-	tunables->boosted = tunables->boost_val || now < tunables->boostpulse_endtime;
+	this_hispeed_freq = max(tunables->hispeed_freq, ppol->policy->min);
 
 	if (cpu_load >= tunables->go_hispeed_load || tunables->boosted) {
 		if (pcpu->policy->cur < tunables->hispeed_freq &&
