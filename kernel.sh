@@ -12,7 +12,6 @@ rm ../kerzip/tools/dt.img
 rm ../kerzip/system/lib/modules/wlan.ko
 rm ../kerzip/tools/Image
 fi
-ccache -c
 BUILD_START=$(date +"%s")
 KERNEL_DIR=$PWD
 DTBTOOL=$KERNEL_DIR/tools/dtbToolCM
@@ -30,8 +29,8 @@ make lineageos_tomato_defconfig
 echo "Making"
 make -j2 | tee $HOME/output.txt
 cd $HOME
-mv output.txt "Output-%date:~10,4%%date:~7,2%%date:~4,2%-%time:~0,2%%time:~3,2%.txt"
-gdrive upload "Output-%date:~10,4%%date:~7,2%%date:~4,2%-%time:~0,2%%time:~3,2%.txt"
+mv output.txt "Output.txt"
+gdrive upload "Output.txt"
 cd kernel
 echo "Making dt.img"
 $DTBTOOL -2 -o $KERNEL_DIR/arch/arm64/boot/dt.img -s 2048 -p $KERNEL_DIR/scripts/dtc/ $KERNEL_DIR/arch/arm/boot/dts/
