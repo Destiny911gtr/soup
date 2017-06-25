@@ -147,10 +147,6 @@ struct cpufreq_interactive_tunables {
 	/* Use agressive frequency step calculation, above a given load threshold */
 	bool fastlane;
 	unsigned int fastlane_threshold;
-
-	/* Improves frequency selection for more energy */
-	bool powersave_bias;
-
 };
 
 /* For cases where we have single governor instance for system */
@@ -672,7 +668,7 @@ static int cpufreq_interactive_speedchange_task(void *data)
 	unsigned int cpu;
 	cpumask_t tmp_mask;
 	unsigned long flags;
-	struct cpufreq_interactive_cpuinfo *pcpu;
+	struct cpufreq_interactive_policyinfo *ppol;
 
 	while (1) {
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -695,29 +691,18 @@ static int cpufreq_interactive_speedchange_task(void *data)
 		spin_unlock_irqrestore(&speedchange_cpumask_lock, flags);
 
 		for_each_cpu(cpu, &tmp_mask) {
-			unsigned int j;
-			unsigned int max_freq = 0;
-			struct cpufreq_interactive_cpuinfo *pjcpu;
-			u64 hvt = ~0ULL, fvt = 0;
-
-			pcpu = &per_cpu(cpuinfo, cpu);
-			if (!down_read_trylock(&pcpu->enable_sem))
+			ppol = per_cpu(polinfo, cpu);
+			if (!down_read_trylock(&ppol->enable_sem))
 				continue;
 			if (!pcpu->governor_enabled) {
 				up_read(&pcpu->enable_sem);
 				continue;
 			}
 
-			if (ppol->target_freq != ppol->policy->cur) {
-			    if (tunables->powersave_bias || !display_on)
-				    __cpufreq_driver_target(ppol->policy,
-							    ppol->target_freq,
-							    CPUFREQ_RELATION_C);
-			    else
-				    __cpufreq_driver_target(ppol->policy,
-							    ppol->target_freq,
-							    CPUFREQ_RELATION_H);
-			}
+			if (ppol->target_freq != ppol->policy->cur)
+				__cpufreq_driver_target(ppol->policy,
+							ppol->target_freq,
+							CPUFREQ_RELATION_H);
 			trace_cpufreq_interactive_setspeed(cpu,
 						     pcpu->target_freq,
 						     pcpu->policy->cur);
@@ -1400,25 +1385,6 @@ static ssize_t store_fastlane_threshold(
 	return count;
 }
 
-static ssize_t show_powersave_bias(struct cpufreq_interactive_tunables *tunables,
-		char *buf)
-{
-	return sprintf(buf, "%u\n", tunables->powersave_bias);
-}
-
-static ssize_t store_powersave_bias(struct cpufreq_interactive_tunables *tunables,
-		const char *buf, size_t count)
-{
-	int ret;
-	unsigned long val;
-
-	ret = kstrtoul(buf, 0, &val);
-	if (ret < 0)
-		return ret;
-	tunables->powersave_bias = val;
-	return count;
-}
-
 /*
  * Create show/store routines
  * - sys: One governor instance for complete SYSTEM
@@ -1471,7 +1437,6 @@ show_store_gov_pol_sys(ignore_hispeed_on_notif);
 show_store_gov_pol_sys(fast_ramp_down);
 show_store_gov_pol_sys(fastlane);
 show_store_gov_pol_sys(fastlane_threshold);
-show_store_gov_pol_sys(powersave_bias);
 
 #define gov_sys_attr_rw(_name)						\
 static struct global_attr _name##_gov_sys =				\
@@ -1501,7 +1466,6 @@ gov_sys_pol_attr_rw(ignore_hispeed_on_notif);
 gov_sys_pol_attr_rw(fast_ramp_down);
 gov_sys_pol_attr_rw(fastlane);
 gov_sys_pol_attr_rw(fastlane_threshold);
-gov_sys_pol_attr_rw(powersave_bias);
 
 /* One Governor instance for entire system */
 static struct attribute *interactive_attributes_gov_sys[] = {
@@ -1521,7 +1485,6 @@ static struct attribute *interactive_attributes_gov_sys[] = {
 	&fast_ramp_down_gov_sys.attr,
 	&fastlane_gov_sys.attr,
 	&fastlane_threshold_gov_sys.attr,
-	&powersave_bias_gov_sys.attr,
 	NULL,
 };
 
@@ -1548,7 +1511,6 @@ static struct attribute *interactive_attributes_gov_pol[] = {
 	&fast_ramp_down_gov_pol.attr,
 	&fastlane_gov_pol.attr,
 	&fastlane_threshold_gov_pol.attr,
-	&powersave_bias_gov_pol.attr,
 	NULL,
 };
 
