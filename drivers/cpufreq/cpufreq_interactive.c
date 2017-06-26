@@ -81,6 +81,7 @@ static struct mutex sched_lock;
 static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
 
 #define DEFAULT_TIMER_RATE (20 * USEC_PER_MSEC)
+#define SCREEN_OFF_TIMER_RATE ((unsigned long)(60 * USEC_PER_MSEC))
 #define DEFAULT_ABOVE_HISPEED_DELAY DEFAULT_TIMER_RATE
 static unsigned int default_above_hispeed_delay[] = {
 	DEFAULT_ABOVE_HISPEED_DELAY };
@@ -411,38 +412,44 @@ static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 	unsigned int loadadjfreq;
 	unsigned int index;
 	unsigned long flags;
-	struct cpufreq_govinfo int_info;
-	u64 max_fvtime;
+	unsigned long max_cpu;
+	int i;
+	struct cpufreq_govinfo govinfo;
+	bool skip_hispeed_logic, skip_min_sample_time;
+	bool policy_max_fast_restore = false;
+	bool display_on = is_display_on();
+	unsigned int this_hispeed_freq;
 
-	if (!down_read_trylock(&pcpu->enable_sem))
+	if (!down_read_trylock(&ppol->enable_sem))
 		return;
 	if (!pcpu->governor_enabled)
 		goto exit;
 
-	spin_lock_irqsave(&pcpu->load_lock, flags);
-	pcpu->last_evaluated_jiffy = get_jiffies_64();
-	now = update_load(data);
-	if (tunables->use_sched_load) {
-		/*
-		 * Unlock early to avoid deadlock.
-		 *
-		 * load_change_callback() for thread migration already
-		 * holds rq lock. Then it locks load_lock to avoid racing
-		 * with cpufreq_interactive_timer_resched/start().
-		 * sched_get_busy() will also acquire rq lock. Thus we
-		 * can't hold load_lock when calling sched_get_busy().
-		 *
-		 * load_lock used in this function protects time
-		 * and load information. These stats are not used when
-		 * scheduler input is available. Thus unlocking load_lock
-		 * early is perfectly OK.
-		 */
-		spin_unlock_irqrestore(&pcpu->load_lock, flags);
-		cputime_speedadj = (u64)sched_get_busy(data) *
-				pcpu->policy->cpuinfo.max_freq;
-		do_div(cputime_speedadj, tunables->timer_rate);
-	} else {
-		delta_time = (unsigned int)
+	now = ktime_to_us(ktime_get());
+	spin_lock_irqsave(&ppol->load_lock, flags);
+	ppol->last_evaluated_jiffy = get_jiffies_64();
+
+	if (display_on
+		&& tunables->timer_rate != tunables->prev_timer_rate)
+		tunables->timer_rate = tunables->prev_timer_rate;
+	else if (!display_on
+		&& tunables->timer_rate != SCREEN_OFF_TIMER_RATE) {
+		tunables->prev_timer_rate = tunables->timer_rate;
+		tunables->timer_rate
+			= max(tunables->timer_rate,
+				SCREEN_OFF_TIMER_RATE);
+	}
+
+	max_cpu = cpumask_first(ppol->policy->cpus);
+	for_each_cpu(i, ppol->policy->cpus) {
+		pcpu = &per_cpu(cpuinfo, i);
+		if (tunables->use_sched_load) {
+			cputime_speedadj = (u64)sched_get_busy(i) *
+					ppol->policy->cpuinfo.max_freq;
+			do_div(cputime_speedadj, tunables->timer_rate);
+		} else {
+			now = update_load(i);
+			delta_time = (unsigned int)
 				(now - pcpu->cputime_speedadj_timestamp);
 		cputime_speedadj = pcpu->cputime_speedadj;
 		spin_unlock_irqrestore(&pcpu->load_lock, flags);
